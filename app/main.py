@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import auth, users, blogs
+from app.seeder import create_tables, seed_database
 
 
 @asynccontextmanager
@@ -35,3 +36,20 @@ app.include_router(blogs.router)
 @app.get("/", tags=["Health"])
 def root():
     return {"message": "API is running"}
+
+
+@app.post("/seed", tags=["Health"])
+def seed():
+    from app.database import SessionLocal
+    from app import models
+
+    create_tables()
+    db = SessionLocal()
+    try:
+        if db.query(models.User).first():
+            return {"message": "Already seeded, skipping"}
+    finally:
+        db.close()
+
+    seed_database()
+    return {"message": "Database seeded!"}

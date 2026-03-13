@@ -5,8 +5,10 @@ psycopg2-binary
 python-dotenv
 pydantic
 pydantic[email]
+email-validator
 bcrypt
 PyJWT
 sqlalchemy-utils
 alembic
+gunicorn
 python-multipart
