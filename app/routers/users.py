@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -8,6 +9,7 @@ from app.schemas import UserCreate, UserUpdate, UserOut
 from app.auth import hash_password, get_current_user
 
 router = APIRouter(prefix="/users", tags=["Users"])
+logger = logging.getLogger("app.users")
 
 
 @router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -47,6 +49,7 @@ def get_me(current_user: models.User = Depends(get_current_user)):
 def get_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
+        logger.warning("User not found: id=%d", user_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
 
@@ -60,6 +63,7 @@ def update_user(
 ):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
+        logger.warning("User not found for update: id=%d", user_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if user.id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
@@ -98,6 +102,7 @@ def delete_user(
 ):
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
+        logger.warning("User not found for delete: id=%d", user_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     if user.id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")

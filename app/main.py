@@ -1,16 +1,24 @@
+import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
+from app.logging_config import setup_logging
+from app.middleware import RequestLoggerMiddleware
 from app.routers import auth, users, blogs
 from app.seeder import create_tables, seed_database
+
+# Boot logging before anything else
+setup_logging()
+logger = logging.getLogger("app.main")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("App started")
+    logger.info("App started")
     yield
-    print("App shutting down")
+    logger.info("App shutting down")
 
 
 app = FastAPI(
@@ -20,6 +28,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Request logger must be added BEFORE CORSMiddleware so every request is captured
+app.add_middleware(RequestLoggerMiddleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -27,6 +38,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.critical(
+        "Unhandled exception on %s %s: %s",
+        request.method,
+        request.url.path,
+        exc,
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+
 
 app.include_router(auth.router)
 app.include_router(users.router)
@@ -47,9 +74,11 @@ def seed():
     db = SessionLocal()
     try:
         if db.query(models.User).first():
+            logger.info("POST /seed called — data already exists, skipping")
             return {"message": "Already seeded, skipping"}
     finally:
         db.close()
 
     seed_database()
+    logger.info("POST /seed called — database seeded successfully")
     return {"message": "Database seeded!"}

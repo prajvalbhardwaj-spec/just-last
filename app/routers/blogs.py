@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -8,6 +9,7 @@ from app.schemas import BlogCreate, BlogUpdate, BlogOut
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/blogs", tags=["Blogs"])
+logger = logging.getLogger("app.blogs")
 
 
 @router.post("/", response_model=BlogOut, status_code=status.HTTP_201_CREATED)
@@ -36,6 +38,7 @@ def list_blogs(db: Session = Depends(get_db)):
 def get_blog(blog_id: int, db: Session = Depends(get_db)):
     blog = db.query(models.Blog).filter(models.Blog.id == blog_id).first()
     if not blog:
+        logger.warning("Blog not found: id=%d", blog_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Blog not found")
     return blog
 
@@ -49,6 +52,7 @@ def update_blog(
 ):
     blog = db.query(models.Blog).filter(models.Blog.id == blog_id).first()
     if not blog:
+        logger.warning("Blog not found for update: id=%d", blog_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Blog not found")
     if blog.owner_id != current_user.id:
         raise HTTPException(
@@ -72,6 +76,7 @@ def delete_blog(
 ):
     blog = db.query(models.Blog).filter(models.Blog.id == blog_id).first()
     if not blog:
+        logger.warning("Blog not found for delete: id=%d", blog_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Blog not found")
     if blog.owner_id != current_user.id:
         raise HTTPException(
